@@ -1,6 +1,6 @@
 # N25_AddLayers.py - run ONCE per project in QGIS (Plugins > Python Console > Show Editor > open > Run).
 # Creates N25_Data.gpkg beside the project (if missing) with N25_Points, N25_Mapping and N25_Profile,
-# adds them to the project in the project CRS, and saves the project. Existing layers are left alone.
+# adds them to the project in the project CRS (in their own top-level 'N25' group), and saves the project. Existing layers are left alone.
 import os
 from qgis.core import (QgsProject, QgsVectorLayer, QgsFields, QgsField, QgsVectorFileWriter,
                        QgsCoordinateTransformContext, QgsWkbTypes)
@@ -25,6 +25,8 @@ crs = proj.crs()
 existing = {l.name() for l in proj.mapLayers().values()}
 first = not os.path.exists(gpkg)
 added = []
+root = proj.layerTreeRoot()
+grp = root.findGroup("N25") or root.insertGroup(0, "N25")
 for name, fields in LAYERS:
     if name in existing:
         continue
@@ -43,7 +45,8 @@ for name, fields in LAYERS:
     lyr = QgsVectorLayer(gpkg + "|layername=" + name, name, "ogr")
     if not lyr.isValid():
         raise Exception("Layer %s did not load" % name)
-    proj.addMapLayer(lyr)
+    proj.addMapLayer(lyr, False)
+    grp.addLayer(lyr)
     added.append(name)
 proj.write()
 print("N25 layers added: %s. Project saved. Package it for QField as usual." % (", ".join(added) or "none (all already present)"))
