@@ -1414,7 +1414,7 @@ Item {
         font.pixelSize: Math.max(8, Math.round(24 * miniInfo.k)); font.bold: true
       }
       Text { text: plugin.dir > 0 ? "+ INCREASING" : "- DECREASING"; color: "#8FC7FF"; font.pixelSize: Math.max(8, Math.round(11 * miniInfo.k)); font.bold: true }
-      Text { text: "N25 v2.5"; color: plugin.cDim; font.pixelSize: Math.max(8, Math.round(9 * miniInfo.k)) }
+      Text { text: "N25 v2.6"; color: plugin.cDim; font.pixelSize: Math.max(8, Math.round(9 * miniInfo.k)) }
     }
   }
 
@@ -1886,16 +1886,16 @@ Item {
         Text { Layout.columnSpan: 2; Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: 11
           color: plugin.store ? "#1E7B46" : "#B3261E"
           text: plugin.store ? "Settings are remembered between sessions." : "Settings can NOT be remembered on this QField: " + plugin.storeErr }
-        Text { text: "ATol - snap to stn / lock (m)" } TextField { id: sA; Layout.fillWidth: true; inputMethodHints: Qt.ImhFormattedNumbersOnly }
-        Text { text: "XTol - max crossline XTrack (m)" } TextField { id: sX; Layout.fillWidth: true; inputMethodHints: Qt.ImhFormattedNumbersOnly }
-        Text { text: "From/To threshold (m)" } TextField { id: sF; Layout.fillWidth: true; inputMethodHints: Qt.ImhFormattedNumbersOnly }
-        Text { text: "Stn interval (0 = auto)" } TextField { id: sI; Layout.fillWidth: true; inputMethodHints: Qt.ImhFormattedNumbersOnly }
-        Text { text: "MaxIntvl (m, 0 = auto)" } TextField { id: sM; Layout.fillWidth: true; inputMethodHints: Qt.ImhFormattedNumbersOnly }
-        Text { text: "MaxBend (deg)" } TextField { id: sB; Layout.fillWidth: true; inputMethodHints: Qt.ImhFormattedNumbersOnly }
-        Text { text: "DistTol (%)" } TextField { id: sD; Layout.fillWidth: true; inputMethodHints: Qt.ImhFormattedNumbersOnly }
-        Text { text: "Antenna Ht (m)" } TextField { id: sAnt; Layout.fillWidth: true; inputMethodHints: Qt.ImhFormattedNumbersOnly }
-        Text { text: "Height offset (m)" } TextField { id: sVO; Layout.fillWidth: true; inputMethodHints: Qt.ImhFormattedNumbersOnly }
-        Text { text: "Known AHD here (m)" } TextField { id: sKnown; Layout.fillWidth: true; placeholderText: "e.g. 6.3"; inputMethodHints: Qt.ImhFormattedNumbersOnly }
+        Text { text: "ATol - snap to stn / lock (m)"; Layout.fillWidth: true; Layout.preferredWidth: 60; wrapMode: Text.Wrap } TextField { id: sA; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120; inputMethodHints: Qt.ImhFormattedNumbersOnly }
+        Text { text: "XTol - max crossline XTrack (m)"; Layout.fillWidth: true; Layout.preferredWidth: 60; wrapMode: Text.Wrap } TextField { id: sX; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120; inputMethodHints: Qt.ImhFormattedNumbersOnly }
+        Text { text: "From/To threshold (m)"; Layout.fillWidth: true; Layout.preferredWidth: 60; wrapMode: Text.Wrap } TextField { id: sF; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120; inputMethodHints: Qt.ImhFormattedNumbersOnly }
+        Text { text: "Stn interval (0 = auto)"; Layout.fillWidth: true; Layout.preferredWidth: 60; wrapMode: Text.Wrap } TextField { id: sI; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120; inputMethodHints: Qt.ImhFormattedNumbersOnly }
+        Text { text: "MaxIntvl (m, 0 = auto)"; Layout.fillWidth: true; Layout.preferredWidth: 60; wrapMode: Text.Wrap } TextField { id: sM; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120; inputMethodHints: Qt.ImhFormattedNumbersOnly }
+        Text { text: "MaxBend (deg)"; Layout.fillWidth: true; Layout.preferredWidth: 60; wrapMode: Text.Wrap } TextField { id: sB; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120; inputMethodHints: Qt.ImhFormattedNumbersOnly }
+        Text { text: "DistTol (%)"; Layout.fillWidth: true; Layout.preferredWidth: 60; wrapMode: Text.Wrap } TextField { id: sD; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120; inputMethodHints: Qt.ImhFormattedNumbersOnly }
+        Text { text: "Antenna Ht (m)"; Layout.fillWidth: true; Layout.preferredWidth: 60; wrapMode: Text.Wrap } TextField { id: sAnt; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120; inputMethodHints: Qt.ImhFormattedNumbersOnly }
+        Text { text: "Height offset (m)"; Layout.fillWidth: true; Layout.preferredWidth: 60; wrapMode: Text.Wrap } TextField { id: sVO; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120; inputMethodHints: Qt.ImhFormattedNumbersOnly }
+        Text { text: "Known AHD here (m)"; Layout.fillWidth: true; Layout.preferredWidth: 60; wrapMode: Text.Wrap } TextField { id: sKnown; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120; placeholderText: "e.g. 6.3"; inputMethodHints: Qt.ImhFormattedNumbersOnly }
         Button { Layout.columnSpan: 2; Layout.fillWidth: true; text: "Calibrate offset from here"
           onClicked: {
             var kh = parseFloat(sKnown.text), ah = parseFloat(sAnt.text);
@@ -1909,23 +1909,23 @@ Item {
             plugin.saveSettings();
             plugin.toast("Height offset set to " + plugin.vOffset + " m (antenna " + ah + " m, known " + kh + " m)");
           } }
-        Text { text: "AutoInc (+1 / -1)" } TextField { id: sInc; Layout.fillWidth: true; inputMethodHints: Qt.ImhFormattedNumbersOnly }
-        Text { text: "Profile every (m), 0 = off" } TextField { id: sL; Layout.fillWidth: true; inputMethodHints: Qt.ImhFormattedNumbersOnly }
+        Text { text: "AutoInc (+1 / -1)"; Layout.fillWidth: true; Layout.preferredWidth: 60; wrapMode: Text.Wrap } TextField { id: sInc; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120; inputMethodHints: Qt.ImhFormattedNumbersOnly }
+        Text { text: "Profile every (m), 0 = off"; Layout.fillWidth: true; Layout.preferredWidth: 60; wrapMode: Text.Wrap } TextField { id: sL; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120; inputMethodHints: Qt.ImhFormattedNumbersOnly }
         CheckBox { id: sSl; text: "Stakeless mode (SL button)"; Layout.columnSpan: 2 }
-        Text { text: "PTol horiz (m, 0 = off)" } TextField { id: sP; Layout.fillWidth: true; inputMethodHints: Qt.ImhFormattedNumbersOnly }
-        Text { text: "ZTol vert (m, 0 = off)" } TextField { id: sZ; Layout.fillWidth: true; inputMethodHints: Qt.ImhFormattedNumbersOnly }
-        Text { text: "QTol HDOP (0 = off)" } TextField { id: sQ; Layout.fillWidth: true; inputMethodHints: Qt.ImhFormattedNumbersOnly }
-        Text { text: "Surveyor initials (ObsFile / Surveyor)" } TextField { id: sSv; Layout.fillWidth: true; maximumLength: 8 }
-        Text { text: "Preplot layer (blank = auto)" } TextField { id: sPre; Layout.fillWidth: true }
-        Text { text: "Station field (blank = auto)" } TextField { id: sStnF; Layout.fillWidth: true }
-        Text { text: "Line field (blank = auto)" } TextField { id: sLnF; Layout.fillWidth: true }
-        Text { text: "Point record layer" } TextField { id: sRecL; Layout.fillWidth: true }
-        Text { text: "Feature (mapping) layer" } TextField { id: sMapL; Layout.fillWidth: true }
+        Text { text: "PTol horiz (m, 0 = off)"; Layout.fillWidth: true; Layout.preferredWidth: 60; wrapMode: Text.Wrap } TextField { id: sP; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120; inputMethodHints: Qt.ImhFormattedNumbersOnly }
+        Text { text: "ZTol vert (m, 0 = off)"; Layout.fillWidth: true; Layout.preferredWidth: 60; wrapMode: Text.Wrap } TextField { id: sZ; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120; inputMethodHints: Qt.ImhFormattedNumbersOnly }
+        Text { text: "QTol HDOP (0 = off)"; Layout.fillWidth: true; Layout.preferredWidth: 60; wrapMode: Text.Wrap } TextField { id: sQ; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120; inputMethodHints: Qt.ImhFormattedNumbersOnly }
+        Text { text: "Surveyor initials (ObsFile / Surveyor)"; Layout.fillWidth: true; Layout.preferredWidth: 60; wrapMode: Text.Wrap } TextField { id: sSv; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120; maximumLength: 8 }
+        Text { text: "Preplot layer (blank = auto)"; Layout.fillWidth: true; Layout.preferredWidth: 60; wrapMode: Text.Wrap } TextField { id: sPre; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120 }
+        Text { text: "Station field (blank = auto)"; Layout.fillWidth: true; Layout.preferredWidth: 60; wrapMode: Text.Wrap } TextField { id: sStnF; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120 }
+        Text { text: "Line field (blank = auto)"; Layout.fillWidth: true; Layout.preferredWidth: 60; wrapMode: Text.Wrap } TextField { id: sLnF; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120 }
+        Text { text: "Point record layer"; Layout.fillWidth: true; Layout.preferredWidth: 60; wrapMode: Text.Wrap } TextField { id: sRecL; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120 }
+        Text { text: "Feature (mapping) layer"; Layout.fillWidth: true; Layout.preferredWidth: 60; wrapMode: Text.Wrap } TextField { id: sMapL; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120 }
         CheckBox { id: sSnd; text: "Alarm sound"; Layout.columnSpan: 2 }
-        Text { text: "BaseID (CSV)" } TextField { id: sBase; Layout.fillWidth: true }
-        Text { text: "GPS serial no. (CSV)" } TextField { id: sGSn; Layout.fillWidth: true }
-        Text { text: "GPS model (CSV)" } TextField { id: sGMod; Layout.fillWidth: true }
-        Text { text: "GPS (CSV, free text)" } TextField { id: sGNm; Layout.fillWidth: true }
+        Text { text: "BaseID (CSV)"; Layout.fillWidth: true; Layout.preferredWidth: 60; wrapMode: Text.Wrap } TextField { id: sBase; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120 }
+        Text { text: "GPS serial no. (CSV)"; Layout.fillWidth: true; Layout.preferredWidth: 60; wrapMode: Text.Wrap } TextField { id: sGSn; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120 }
+        Text { text: "GPS model (CSV)"; Layout.fillWidth: true; Layout.preferredWidth: 60; wrapMode: Text.Wrap } TextField { id: sGMod; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120 }
+        Text { text: "GPS (CSV, free text)"; Layout.fillWidth: true; Layout.preferredWidth: 60; wrapMode: Text.Wrap } TextField { id: sGNm; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120 }
         CheckBox { id: sCsv; text: "Write Combined CSV"; Layout.columnSpan: 2 }
         CheckBox { id: sVoice; text: "Voice: say Point location stored / not stored"; Layout.columnSpan: 2 }
         Text { Layout.columnSpan: 2; Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: 11
@@ -1935,7 +1935,7 @@ Item {
                 + "  Right now: " + plugin.readings() + (plugin.correctionsOk() ? " - within limits." : " - OUT of limits (or not reported).")
                 + "  QField gives: " + plugin.accDiag()
                 + "  | " + plugin.posDiag()
-                + "  " + plugin.csvStatus + "  [N25 v2.5 build]" }
+                + "  " + plugin.csvStatus + "  [N25 v2.6 build]" }
         Button { text: "Reload layers"; Layout.fillWidth: true
           onClicked: { plugin.loadedOnce = false; plugin.startLoad(); } }
         Button { text: "Apply"; Layout.fillWidth: true
