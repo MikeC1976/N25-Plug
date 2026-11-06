@@ -78,6 +78,9 @@ Item {
   property string curLine: ""
   property int dir: 1
   property bool follow: true
+  property bool autoPickLine: false      // off: the line is only chosen with the LINE button
+  property real lastCx: NaN
+  property real lastCy: NaN
   property bool navView: true
   property bool streaming: false
   property var nav: null
@@ -154,7 +157,7 @@ Item {
   }
   readonly property var persistNums: ["aTol", "xTol", "fromToThreshold", "stnInterval", "maxIntvl", "maxBend", "distTol", "antHt", "autoInc", "logInterval", "pTol", "zTol", "qTol", "vOffset"]
   readonly property var persistStrs: ["surveyor", "preplotName", "stationField", "lineField", "recordLayerName", "mappingLayerName", "baseId", "gpsSerial", "gpsModel", "gpsName"]
-  readonly property var persistBools: ["stakelessEnabled", "alarmSound", "voiceFeedback", "navView", "csvExport"]
+  readonly property var persistBools: ["stakelessEnabled", "alarmSound", "voiceFeedback", "navView", "csvExport", "autoPickLine"]
   function saveSettings() {
     if (!store) return;
     try {
@@ -863,7 +866,7 @@ Item {
 
     // No line chosen yet (e.g. first run on a new device - the last line is only remembered per device):
     // pick the nearest preplot line automatically when the position is within autoPickDist of it
-    if (curLine === "" && loadedOnce && !loading) {
+    if (autoPickLine && curLine === "" && loadedOnce && !loading) {
       try {
         var nl = nearestLines(lines, x, y, 1);
         if (nl.length > 0 && nl[0].off <= autoPickDist) setLine(nl[0].id);
@@ -892,7 +895,21 @@ Item {
     if (streaming && Math.hypot(x - lastStreamX, y - lastStreamY) >= streamInterval) streamPoint();
 
     if (follow) {
+      // if the user has dragged the map away from where we last put it, stop following until FOLLOW is tapped
+      try {
+        var ms = mapCanvas.mapSettings, mupp = 0;
+        try { mupp = ms.mapUnitsPerPoint; } catch (em1) { mupp = 0; }
+        if (!(mupp > 0)) { try { mupp = ms.mapUnitsPerPixel; } catch (em2) { mupp = 0; } }
+        if (!(mupp > 0)) mupp = 0.5;
+        var cc = ms.center;
+        if (isFinite(lastCx) && Math.hypot(cc.x - lastCx, cc.y - lastCy) > mupp * 12) {
+          follow = false; toast("Map free - tap FOLLOW in the N25 panel to recentre");
+        }
+      } catch (ep) {}
+    }
+    if (follow) {
       mapCanvas.mapSettings.center = QfGeometryUtils.point(x, y);
+      lastCx = x; lastCy = y;
       var tb = nav ? nav.travelBearing : null;
       if (navView && tb !== null) mapCanvas.mapSettings.rotation = -deg(tb);
       else if (!navView) mapCanvas.mapSettings.rotation = 0;
@@ -1414,7 +1431,7 @@ Item {
         font.pixelSize: Math.max(8, Math.round(24 * miniInfo.k)); font.bold: true
       }
       Text { text: plugin.dir > 0 ? "+ INCREASING" : "- DECREASING"; color: "#8FC7FF"; font.pixelSize: Math.max(8, Math.round(11 * miniInfo.k)); font.bold: true }
-      Text { text: "N25 v2.6"; color: plugin.cDim; font.pixelSize: Math.max(8, Math.round(9 * miniInfo.k)) }
+      Text { text: "N25 v2.7"; color: plugin.cDim; font.pixelSize: Math.max(8, Math.round(9 * miniInfo.k)) }
     }
   }
 
@@ -1696,6 +1713,7 @@ Item {
           [
             {t: plugin.slRun ? "SL STOP \u25cf" : "SL START", c: plugin.slRun ? "#B3261E" : "#0F6E7A", a: "sl", show: plugin.stakelessEnabled},
             {t: plugin.navView ? "NAV" : "MAP", c: "#2B3A47", a: "view", show: true},
+            {t: plugin.follow ? "FOLLOW" : "FREE", c: plugin.follow ? "#1E7B46" : "#2B3A47", a: "follow", show: true},
             {t: "\u2699", c: "#2B3A47", a: "cfg", show: true}
           ]
         ]
@@ -1725,6 +1743,7 @@ Item {
                       else markPopup.openRec(true);
                       break;
                     case "sl": if (plugin.slRun) plugin.slStop(""); else plugin.slStart(); break;
+                    case "follow": plugin.follow = !plugin.follow; plugin.lastCx = NaN; if (plugin.follow && plugin.haveFix) { mapCanvas.mapSettings.center = QfGeometryUtils.point(plugin.posX, plugin.posY); plugin.lastCx = plugin.posX; plugin.lastCy = plugin.posY; } break;
                     case "view": plugin.navView = !plugin.navView; plugin.saveSettings(); break;
                     case "cfg": cfgPopup.open(); break;
                     }
@@ -1866,7 +1885,7 @@ Item {
     onAboutToShow: {
       sA.text = plugin.aTol; sX.text = plugin.xTol; sF.text = plugin.fromToThreshold;
       sI.text = plugin.stnInterval; sM.text = plugin.maxIntvl; sB.text = plugin.maxBend; sD.text = plugin.distTol;
-      sAnt.text = plugin.antHt; sInc.text = plugin.autoInc; sL.text = plugin.logInterval; sSl.checked = plugin.stakelessEnabled;
+      sAnt.text = plugin.antHt; sInc.text = plugin.autoInc; sL.text = plugin.logInterval; sSl.checked = plugin.stakelessEnabled; sAuto.checked = plugin.autoPickLine;
       sP.text = plugin.pTol; sZ.text = plugin.zTol; sQ.text = plugin.qTol; sSnd.checked = plugin.alarmSound; sSv.text = plugin.surveyor;
       sVoice.checked = plugin.voiceFeedback;
       sPre.text = plugin.preplotName; sStnF.text = plugin.stationField; sLnF.text = plugin.lineField;
@@ -1912,6 +1931,7 @@ Item {
         Text { text: "AutoInc (+1 / -1)"; Layout.fillWidth: true; Layout.preferredWidth: 60; wrapMode: Text.Wrap } TextField { id: sInc; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120; inputMethodHints: Qt.ImhFormattedNumbersOnly }
         Text { text: "Profile every (m), 0 = off"; Layout.fillWidth: true; Layout.preferredWidth: 60; wrapMode: Text.Wrap } TextField { id: sL; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120; inputMethodHints: Qt.ImhFormattedNumbersOnly }
         CheckBox { id: sSl; text: "Stakeless mode (SL button)"; Layout.columnSpan: 2 }
+        CheckBox { id: sAuto; text: "Auto-pick nearest line (off = LINE button only)"; Layout.columnSpan: 2 }
         Text { text: "PTol horiz (m, 0 = off)"; Layout.fillWidth: true; Layout.preferredWidth: 60; wrapMode: Text.Wrap } TextField { id: sP; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120; inputMethodHints: Qt.ImhFormattedNumbersOnly }
         Text { text: "ZTol vert (m, 0 = off)"; Layout.fillWidth: true; Layout.preferredWidth: 60; wrapMode: Text.Wrap } TextField { id: sZ; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120; inputMethodHints: Qt.ImhFormattedNumbersOnly }
         Text { text: "QTol HDOP (0 = off)"; Layout.fillWidth: true; Layout.preferredWidth: 60; wrapMode: Text.Wrap } TextField { id: sQ; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120; inputMethodHints: Qt.ImhFormattedNumbersOnly }
@@ -1935,7 +1955,7 @@ Item {
                 + "  Right now: " + plugin.readings() + (plugin.correctionsOk() ? " - within limits." : " - OUT of limits (or not reported).")
                 + "  QField gives: " + plugin.accDiag()
                 + "  | " + plugin.posDiag()
-                + "  " + plugin.csvStatus + "  [N25 v2.6 build]" }
+                + "  " + plugin.csvStatus + "  [N25 v2.7 build]" }
         Button { text: "Reload layers"; Layout.fillWidth: true
           onClicked: { plugin.loadedOnce = false; plugin.startLoad(); } }
         Button { text: "Apply"; Layout.fillWidth: true
@@ -1944,7 +1964,7 @@ Item {
             plugin.aTol = num(sA.text, 1); plugin.xTol = num(sX.text, 5); plugin.fromToThreshold = num(sF.text, 5);
             plugin.stnInterval = num(sI.text, 0); plugin.maxIntvl = num(sM.text, 0); plugin.maxBend = num(sB.text, 30);
             plugin.distTol = num(sD.text, 10); plugin.antHt = num(sAnt.text, 2); plugin.vOffset = num(sVO.text, 0); plugin.autoInc = parseInt(sInc.text) < 0 ? -1 : 1;
-            plugin.logInterval = num(sL.text, 3); plugin.stakelessEnabled = sSl.checked; plugin.pTol = num(sP.text, 0.1); plugin.zTol = num(sZ.text, 0.1);
+            plugin.logInterval = num(sL.text, 3); plugin.stakelessEnabled = sSl.checked; plugin.autoPickLine = sAuto.checked; plugin.pTol = num(sP.text, 0.1); plugin.zTol = num(sZ.text, 0.1);
             plugin.qTol = num(sQ.text, 3); plugin.alarmSound = sSnd.checked; plugin.surveyor = sSv.text.trim();
             plugin.voiceFeedback = sVoice.checked;
             plugin.baseId = sBase.text.trim(); plugin.gpsSerial = sGSn.text.trim(); plugin.gpsModel = sGMod.text.trim(); plugin.gpsName = sGNm.text.trim(); plugin.csvExport = sCsv.checked;
