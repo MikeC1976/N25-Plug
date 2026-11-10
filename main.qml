@@ -81,6 +81,7 @@ Item {
   property bool autoPickLine: false      // off: the line is only chosen with the LINE button
   property real lastCx: NaN
   property real lastCy: NaN
+  property real lastRot: NaN            // map rotation as N25 last left it (to spot QField's own follow mode or a manual rotate)
   property bool navView: true
   property bool streaming: false
   property var nav: null
@@ -905,6 +906,15 @@ Item {
         if (isFinite(lastCx) && Math.hypot(cc.x - lastCx, cc.y - lastCy) > mupp * 12) {
           follow = false; toast("Map free - tap FOLLOW in the N25 panel to recentre");
         }
+        // if something else has turned the map since we last set it (QField's blue locate button in
+        // "follow location and direction" mode, or a two-finger rotate), hand the map over instead of fighting it
+        if (follow && isFinite(lastRot)) {
+          var dRot = Math.abs((((ms.rotation - lastRot) % 360) + 540) % 360 - 180);
+          if (dRot > 3) {
+            follow = false; lastRot = NaN;
+            toast("N25 follow off - QField is steering the map. Tap FOLLOW in the N25 panel to take it back");
+          }
+        }
       } catch (ep) {}
     }
     if (follow) {
@@ -913,6 +923,8 @@ Item {
       var tb = nav ? nav.travelBearing : null;
       if (navView && tb !== null) mapCanvas.mapSettings.rotation = -deg(tb);
       else if (!navView) mapCanvas.mapSettings.rotation = 0;
+      if (navView && tb === null) lastRot = NaN;
+      else { try { lastRot = mapCanvas.mapSettings.rotation; } catch (er) { lastRot = NaN; } }
     }
   }
 
@@ -1431,7 +1443,7 @@ Item {
         font.pixelSize: Math.max(8, Math.round(24 * miniInfo.k)); font.bold: true
       }
       Text { text: plugin.dir > 0 ? "+ INCREASING" : "- DECREASING"; color: "#8FC7FF"; font.pixelSize: Math.max(8, Math.round(11 * miniInfo.k)); font.bold: true }
-      Text { text: "N25 v2.7"; color: plugin.cDim; font.pixelSize: Math.max(8, Math.round(9 * miniInfo.k)) }
+      Text { text: "N25 v2.8"; color: plugin.cDim; font.pixelSize: Math.max(8, Math.round(9 * miniInfo.k)) }
     }
   }
 
@@ -1743,7 +1755,7 @@ Item {
                       else markPopup.openRec(true);
                       break;
                     case "sl": if (plugin.slRun) plugin.slStop(""); else plugin.slStart(); break;
-                    case "follow": plugin.follow = !plugin.follow; plugin.lastCx = NaN; if (plugin.follow && plugin.haveFix) { mapCanvas.mapSettings.center = QfGeometryUtils.point(plugin.posX, plugin.posY); plugin.lastCx = plugin.posX; plugin.lastCy = plugin.posY; } break;
+                    case "follow": plugin.follow = !plugin.follow; plugin.lastCx = NaN; plugin.lastRot = NaN; if (plugin.follow && plugin.haveFix) { mapCanvas.mapSettings.center = QfGeometryUtils.point(plugin.posX, plugin.posY); plugin.lastCx = plugin.posX; plugin.lastCy = plugin.posY; } break;
                     case "view": plugin.navView = !plugin.navView; plugin.saveSettings(); break;
                     case "cfg": cfgPopup.open(); break;
                     }
@@ -1955,7 +1967,7 @@ Item {
                 + "  Right now: " + plugin.readings() + (plugin.correctionsOk() ? " - within limits." : " - OUT of limits (or not reported).")
                 + "  QField gives: " + plugin.accDiag()
                 + "  | " + plugin.posDiag()
-                + "  " + plugin.csvStatus + "  [N25 v2.7 build]" }
+                + "  " + plugin.csvStatus + "  [N25 v2.8 build]" }
         Button { text: "Reload layers"; Layout.fillWidth: true
           onClicked: { plugin.loadedOnce = false; plugin.startLoad(); } }
         Button { text: "Apply"; Layout.fillWidth: true
