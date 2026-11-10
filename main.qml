@@ -81,6 +81,25 @@ Item {
   property bool autoPickLine: false      // off: the line is only chosen with the LINE button
   property real lastCx: NaN
   property real lastCy: NaN
+  // QField's own full-screen pages (settings, project picker, cloud ...). While one is open the N25 overlay hides.
+  property var qfScreens: []
+  property bool mapClear: true
+  function findQfScreens() {
+    var names = ["qfieldSettings", "welcomeScreen", "projectCreationScreen", "qfieldCloudScreen",
+                 "qfieldLocalDataPickerScreen", "messageLog", "sketcher", "codeReader"], out = [];
+    for (var i = 0; i < names.length; i++) {
+      try { var it = iface.findItemByObjectName(names[i]); if (it) out.push(it); } catch (ef) {}
+    }
+    qfScreens = out;
+  }
+  function refreshMapClear() {
+    var clear = true;
+    for (var i = 0; i < qfScreens.length; i++) {
+      try { if (qfScreens[i].visible) { clear = false; break; } } catch (ev) {}
+    }
+    if (mapClear !== clear) mapClear = clear;
+  }
+  Timer { interval: 250; repeat: true; running: plugin.qfScreens.length > 0; onTriggered: plugin.refreshMapClear() }
   property real lastRot: NaN            // map rotation as N25 last left it (to spot QField's own follow mode or a manual rotate)
   property bool navView: true
   property bool streaming: false
@@ -1332,7 +1351,7 @@ Item {
     id: miniStart
     parent: mainWindow.contentItem
     z: 101
-    visible: !panel.visible && plugin.loadedOnce
+    visible: !panel.visible && plugin.loadedOnce && plugin.mapClear
     width: 120; height: 56; radius: 10
     x: Math.round((parent.width - width) / 2)
     y: (mainWindow.sceneTopMargin || 0) + 8
@@ -1349,7 +1368,7 @@ Item {
     id: miniRec
     parent: mainWindow.contentItem
     z: 101
-    visible: !panel.visible && plugin.loadedOnce
+    visible: !panel.visible && plugin.loadedOnce && plugin.mapClear
     width: 48; height: 48; radius: 24
     x: plugin.sideX(width)
     y: plugin.sideY(0, height)
@@ -1367,7 +1386,7 @@ Item {
     id: miniMark
     parent: mainWindow.contentItem
     z: 101
-    visible: !panel.visible && plugin.loadedOnce
+    visible: !panel.visible && plugin.loadedOnce && plugin.mapClear
     width: 48; height: 48; radius: 24
     x: plugin.sideX(width)
     y: plugin.sideY(1, height)
@@ -1384,7 +1403,7 @@ Item {
     id: recBanner
     parent: mainWindow.contentItem
     z: 102
-    visible: plugin.recLabel !== ""
+    visible: plugin.recLabel !== "" && plugin.mapClear
     width: Math.min(parent.width - 24, recBannerText.implicitWidth + 40)
     height: 58; radius: 10
     x: Math.round((parent.width - width) / 2)
@@ -1405,7 +1424,7 @@ Item {
     id: miniInfo
     parent: mainWindow.contentItem
     z: 101
-    visible: !panel.visible && plugin.loadedOnce && plugin.positioning.active
+    visible: !panel.visible && plugin.loadedOnce && plugin.positioning.active && plugin.mapClear
     x: 6
     y: (mainWindow.sceneTopMargin || 0) + (compact ? 60 : 84)
     readonly property bool compact: mainWindow.contentItem.width < 700
@@ -1443,7 +1462,7 @@ Item {
         font.pixelSize: Math.max(8, Math.round(24 * miniInfo.k)); font.bold: true
       }
       Text { text: plugin.dir > 0 ? "+ INCREASING" : "- DECREASING"; color: "#8FC7FF"; font.pixelSize: Math.max(8, Math.round(11 * miniInfo.k)); font.bold: true }
-      Text { text: "N25 v2.8"; color: plugin.cDim; font.pixelSize: Math.max(8, Math.round(9 * miniInfo.k)) }
+      Text { text: "N25 v2.9"; color: plugin.cDim; font.pixelSize: Math.max(8, Math.round(9 * miniInfo.k)) }
     }
   }
 
@@ -1452,7 +1471,7 @@ Item {
     id: miniQual
     parent: mainWindow.contentItem
     z: 101
-    visible: !panel.visible && plugin.loadedOnce && plugin.positioning.active
+    visible: !panel.visible && plugin.loadedOnce && plugin.positioning.active && plugin.mapClear
     spacing: 0
     width: 96
     x: Math.max(4, Math.min(plugin.sideX(width), mainWindow.contentItem.width - width - 6))
@@ -1535,7 +1554,7 @@ Item {
     parent: mainWindow.contentItem
     anchors.fill: parent
     z: 100
-    visible: positioning.active && (plugin.zoneStat === "nogo" || plugin.zoneStat === "warn")
+    visible: plugin.mapClear && positioning.active && (plugin.zoneStat === "nogo" || plugin.zoneStat === "warn")
     color: plugin.zoneStat === "nogo" ? "#40FF1F1F" : "#38FF9A1F"
     border.color: plugin.zoneStat === "nogo" ? "#FF1F1F" : "#FF9A1F"
     border.width: 18
@@ -1547,7 +1566,7 @@ Item {
     parent: mainWindow.contentItem
     anchors.fill: parent
     z: 99
-    visible: plugin.onTarget && plugin.zoneStat === "clear"
+    visible: plugin.mapClear && plugin.onTarget && plugin.zoneStat === "clear"
     color: "#2635D07F"
     border.color: "#35D07F"
     border.width: 14
@@ -1557,6 +1576,8 @@ Item {
     id: panel
     parent: mainWindow.contentItem
     visible: false
+    opacity: plugin.mapClear ? 1 : 0
+    enabled: plugin.mapClear
     z: 100
     x: 4
     y: (mainWindow.sceneTopMargin || 0) + 92
@@ -1967,7 +1988,7 @@ Item {
                 + "  Right now: " + plugin.readings() + (plugin.correctionsOk() ? " - within limits." : " - OUT of limits (or not reported).")
                 + "  QField gives: " + plugin.accDiag()
                 + "  | " + plugin.posDiag()
-                + "  " + plugin.csvStatus + "  [N25 v2.8 build]" }
+                + "  " + plugin.csvStatus + "  [N25 v2.9 build]" }
         Button { text: "Reload layers"; Layout.fillWidth: true
           onClicked: { plugin.loadedOnce = false; plugin.startLoad(); } }
         Button { text: "Apply"; Layout.fillWidth: true
@@ -1993,6 +2014,7 @@ Item {
   }
 
   Component.onCompleted: {
+    findQfScreens();
     initStore();
     loadSettings();
     initSounds();
