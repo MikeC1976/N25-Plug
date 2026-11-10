@@ -18,6 +18,7 @@ PROFILE = [("Line",S),("Stn",D),("XTrack",D),("Easting",D),("Northing",D),("Elev
 TRACK = [("Date",S),("Surveyor",S),("Note",S)]
 LAYERS = [("N25_Points", POINTS, "Point"), ("N25_Mapping", POINTS, "Point"), ("N25_Profile", PROFILE, "Point"), ("N25_Track", TRACK, "LineString")]
 
+STYLE_DIR = "C:/scripts"   # folder holding N25_Mapping.qml (the symbol style for N25_Mapping)
 proj = QgsProject.instance()
 if not proj.fileName():
     raise Exception("Save the project first, then run this script.")
@@ -46,6 +47,8 @@ for name, fields, geom in LAYERS:
     lyr = QgsVectorLayer(gpkg + "|layername=" + name, name, "ogr")
     if not lyr.isValid():
         raise Exception("Layer %s did not load" % name)
+    if name == "N25_Mapping" and os.path.exists(STYLE_DIR + "/N25_Mapping.qml"):
+        lyr.loadNamedStyle(STYLE_DIR + "/N25_Mapping.qml")   # symbols by feature Code
     proj.addMapLayer(lyr, False)
     grp.addLayer(lyr)
     added.append(name)
