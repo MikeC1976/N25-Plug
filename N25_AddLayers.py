@@ -18,7 +18,21 @@ PROFILE = [("Line",S),("Stn",D),("XTrack",D),("Easting",D),("Northing",D),("Elev
 TRACK = [("Date",S),("Surveyor",S),("Note",S)]
 LAYERS = [("N25_Points", POINTS, "Point"), ("N25_Mapping", POINTS, "Point"), ("N25_Profile", PROFILE, "Point"), ("N25_Track", TRACK, "LineString")]
 
-STYLE_DIR = "C:/scripts"   # folder holding N25_Mapping.qml (the symbol style for N25_Mapping)
+# N25_Mapping.qml (symbol style) is looked for beside this script, then in the project folder,
+# then in C:/scripts, then in Downloads. Keep it in the same folder as this script.
+def _find_style():
+    cands = []
+    try:
+        cands.append(os.path.dirname(os.path.abspath(__file__)))
+    except NameError:
+        pass
+    cands += [os.path.dirname(QgsProject.instance().fileName()), "C:/scripts",
+              os.path.join(os.path.expanduser("~"), "Downloads")]
+    for d in cands:
+        if d and os.path.exists(os.path.join(d, "N25_Mapping.qml")):
+            return d
+    return ""
+STYLE_DIR = _find_style()
 proj = QgsProject.instance()
 if not proj.fileName():
     raise Exception("Save the project first, then run this script.")
@@ -47,7 +61,7 @@ for name, fields, geom in LAYERS:
     lyr = QgsVectorLayer(gpkg + "|layername=" + name, name, "ogr")
     if not lyr.isValid():
         raise Exception("Layer %s did not load" % name)
-    if name == "N25_Mapping" and os.path.exists(STYLE_DIR + "/N25_Mapping.qml"):
+    if name == "N25_Mapping" and STYLE_DIR and os.path.exists(STYLE_DIR + "/N25_Mapping.qml"):
         lyr.loadNamedStyle(STYLE_DIR + "/N25_Mapping.qml")   # symbols by feature Code
     proj.addMapLayer(lyr, False)
     grp.addLayer(lyr)
