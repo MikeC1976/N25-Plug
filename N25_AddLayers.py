@@ -53,6 +53,12 @@ for name, fields, geom in LAYERS:
     grp.addLayer(lyr)
     added.append(name)
 
+# QFieldSync packaging: layers sharing one GeoPackage must use the same sync action, so set every N25 layer to "copy"
+# (the file is copied into the QField package as it is)
+for l in proj.mapLayers().values():
+    if l.name().startswith("N25_"):
+        l.setCustomProperty("QFieldSync/action", "copy")
+
 # N25_Track: let QField's own tracking record it (one line per session, runs in the background on QField 3.5+,
 # starts automatically when the project opens, one vertex every 3 m, no attribute form)
 trk = None
