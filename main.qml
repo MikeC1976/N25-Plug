@@ -8,6 +8,7 @@
 //   * No-Go / Warning zones - NG_ prefixed polygon layers = red No-Go, WZ_ prefixed = orange Warning;
 //                             repeating alarm (Warning: fast first phase, then slower), as in Nav25
 //   * On-target highlight  - whole screen goes green while inside both the inline (ATol) and crossline (XTol) gates
+//   * Position marker      - optional own symbol (arrow, crosshair, 4WD, ute, truck, tractor, skid steer ...) and a bearing line (500 m - 20 km) drawn at the GNSS position (settings tab)
 //
 // Layers (see README):  preplot points (settings below), NG_* / WZ_* polygons, N25_Points (recorded points).
 // The navigation/QA logic below the CORE marker is generated from nav25core.js (unit tested).
@@ -175,8 +176,8 @@ Item {
       }
     } catch (e) { store = null; storeErr = String(e); }
   }
-  readonly property var persistNums: ["aTol", "xTol", "fromToThreshold", "stnInterval", "maxIntvl", "maxBend", "distTol", "antHt", "autoInc", "logInterval", "pTol", "zTol", "qTol", "vOffset"]
-  readonly property var persistStrs: ["surveyor", "preplotName", "stationField", "lineField", "recordLayerName", "mappingLayerName", "baseId", "gpsSerial", "gpsModel", "gpsName"]
+  readonly property var persistNums: ["aTol", "xTol", "fromToThreshold", "stnInterval", "maxIntvl", "maxBend", "distTol", "antHt", "autoInc", "logInterval", "pTol", "zTol", "qTol", "vOffset", "markerSize", "bearLen"]
+  readonly property var persistStrs: ["surveyor", "preplotName", "stationField", "lineField", "recordLayerName", "mappingLayerName", "baseId", "gpsSerial", "gpsModel", "gpsName", "markerSym", "markerCol", "lineStyle"]
   readonly property var persistBools: ["stakelessEnabled", "alarmSound", "voiceFeedback", "navView", "csvExport", "autoPickLine"]
   function saveSettings() {
     if (!store) return;
@@ -1904,6 +1905,212 @@ Item {
     }
   }
 
+  // ---- position marker: own symbol + bearing line drawn on the map ----
+  readonly property var symIds: ["default", "arrow", "cross", "dot", "wd", "ute", "truck", "tractor", "skid"]
+  readonly property var symNames: ["QField default (none)", "Arrow", "Crosshair", "Dot + cone", "4WD", "Ute", "Truck", "Tractor", "Skid steer"]
+  readonly property var colNames: ["Red", "Orange", "Yellow", "Green", "Blue", "Magenta", "Black", "White"]
+  readonly property var colHex: ["#E24B4A", "#EF7B1A", "#F2C21B", "#3FA34D", "#2F7FE0", "#D4379E", "#222222", "#FFFFFF"]
+  readonly property var sizeNames: ["Small", "Medium", "Large", "Extra large"]
+  readonly property var sizePx: [28, 42, 60, 84]
+  readonly property var lenNames: ["Off", "500 m", "1 km", "2 km", "5 km", "10 km", "20 km"]
+  readonly property var lenM: [0, 500, 1000, 2000, 5000, 10000, 20000]
+  property string markerSym: "default"
+  property string markerCol: "Red"
+  property real markerSize: 60
+  property real bearLen: 0
+  property string lineStyle: "Solid"
+
+  Item {
+    id: markerLayer
+    parent: mainWindow.contentItem
+    anchors.fill: parent
+    z: 90
+    enabled: false
+    visible: plugin.mapClear && positioning.active && plugin.haveFix && (plugin.markerSym !== "default" || plugin.bearLen > 0)
+    property real sx: -1000
+    property real sy: -1000
+    property real ex: -1000
+    property real ey: -1000
+    property real angDeg: 0
+    readonly property color mainCol: {
+      var i = plugin.colNames.indexOf(plugin.markerCol);
+      var c = plugin.colHex[i < 0 ? 0 : i];
+      return (c === "#FFFFFF") ? "#888888" : c;
+    }
+
+    function update() {
+      try {
+        var ms = plugin.mapCanvas.mapSettings;
+        var b = plugin.heading;
+        var rot = 0;
+        try { rot = ms.rotation; if (!isFinite(rot)) rot = 0; } catch (er) { rot = 0; }
+        var p, q = null;
+        try {
+          p = ms.coordinateToScreen(QfGeometryUtils.point(plugin.posX, plugin.posY));
+          if (plugin.bearLen > 0)
+            q = ms.coordinateToScreen(QfGeometryUtils.point(plugin.posX + plugin.bearLen * Math.sin(b), plugin.posY + plugin.bearLen * Math.cos(b)));
+          p = plugin.mapCanvas.mapToItem(markerLayer, p.x, p.y);
+          if (q) q = plugin.mapCanvas.mapToItem(markerLayer, q.x, q.y);
+        } catch (ec) {
+          // no coordinate transform on this QField build: the N25 follow keeps the position at the centre of the map
+          p = { x: width / 2, y: height / 2 };
+          q = null;
+          if (plugin.bearLen > 0) { var a = b * 180 / Math.PI + rot; q = { x: p.x + 4000 * Math.sin(a * Math.PI / 180), y: p.y - 4000 * Math.cos(a * Math.PI / 180) }; }
+        }
+        var ang = b * 180 / Math.PI + rot;
+        var moved = Math.abs(p.x - sx) > 0.4 || Math.abs(p.y - sy) > 0.4 || Math.abs(ang - angDeg) > 0.3;
+        var qex = q ? q.x : -1000, qey = q ? q.y : -1000;
+        if (Math.abs(qex - ex) > 0.4 || Math.abs(qey - ey) > 0.4) moved = true;
+        sx = p.x; sy = p.y; ex = qex; ey = qey; angDeg = ang;
+        if (moved) { symCv.requestPaint(); lineCv.requestPaint(); }
+      } catch (e) {}
+    }
+    onVisibleChanged: if (visible) { update(); symCv.requestPaint(); lineCv.requestPaint(); }
+
+    Timer { interval: 120; repeat: true; running: markerLayer.visible; onTriggered: markerLayer.update() }
+
+    Canvas {
+      id: lineCv
+      anchors.fill: parent
+      visible: plugin.bearLen > 0
+      onPaint: {
+        var ctx = getContext("2d");
+        ctx.reset();
+        if (plugin.bearLen <= 0 || markerLayer.ex < -999) return;
+        var x0 = markerLayer.sx, y0 = markerLayer.sy;
+        var dx = markerLayer.ex - x0, dy = markerLayer.ey - y0;
+        var full = Math.sqrt(dx * dx + dy * dy);
+        if (full < 1) return;
+        var k = full > 6000 ? 6000 / full : 1;
+        var x1 = x0 + dx * k, y1 = y0 + dy * k;
+        ctx.lineCap = "round";
+        ctx.strokeStyle = "#FFFFFF"; ctx.lineWidth = 7;
+        ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+        ctx.strokeStyle = markerLayer.mainCol; ctx.lineWidth = 3.5;
+        try { if (plugin.lineStyle === "Dashed") ctx.setLineDash([14, 9]); } catch (ed) {}
+        ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+        try { ctx.setLineDash([]); } catch (ed2) {}
+        var ticks = [500, 1000, 2000, 5000, 10000, 20000];
+        ctx.font = "bold 12px sans-serif";
+        for (var i = 0; i < ticks.length; i++) {
+          if (ticks[i] > plugin.bearLen) break;
+          var f = ticks[i] / plugin.bearLen;
+          var tx = x0 + dx * f, ty = y0 + dy * f;
+          if (tx < 0 || ty < 0 || tx > width || ty > height) continue;
+          ctx.fillStyle = "#FFFFFF"; ctx.strokeStyle = "#222222"; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.arc(tx, ty, 3.5, 0, 6.2832); ctx.fill(); ctx.stroke();
+          var lbl = ticks[i] >= 1000 ? (ticks[i] / 1000) + " km" : ticks[i] + " m";
+          ctx.strokeStyle = "#FFFFFF"; ctx.lineWidth = 3; ctx.strokeText(lbl, tx + 7, ty - 5);
+          ctx.fillStyle = "#222222"; ctx.fillText(lbl, tx + 7, ty - 5);
+        }
+      }
+    }
+
+    Canvas {
+      id: symCv
+      visible: plugin.markerSym !== "default"
+      width: Math.round(plugin.markerSize * 1.3) + 6
+      height: width
+      x: markerLayer.sx - width / 2
+      y: markerLayer.sy - height / 2
+      onWidthChanged: requestPaint()
+      property string sig: plugin.markerSym + plugin.markerCol
+      onSigChanged: requestPaint()
+
+      function rr(ctx, x, y, w, h, r) {
+        ctx.beginPath(); ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.arcTo(x + w, y, x + w, y + r, r);
+        ctx.lineTo(x + w, y + h - r); ctx.arcTo(x + w, y + h, x + w - r, y + h, r); ctx.lineTo(x + r, y + h);
+        ctx.arcTo(x, y + h, x, y + h - r, r); ctx.lineTo(x, y + r); ctx.arcTo(x, y, x + r, y, r); ctx.closePath();
+      }
+      function box(ctx, x, y, w, h, r, fill, fa, stroke, sw) {
+        rr(ctx, x, y, w, h, r);
+        if (fill) { ctx.globalAlpha = fa; ctx.fillStyle = fill; ctx.fill(); }
+        if (stroke) { ctx.globalAlpha = 1; ctx.strokeStyle = stroke; ctx.lineWidth = sw; ctx.stroke(); }
+        ctx.globalAlpha = 1;
+      }
+      function ln(ctx, x1, y1, x2, y2, col, a, w) {
+        ctx.globalAlpha = a; ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineCap = "butt";
+        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.globalAlpha = 1;
+      }
+      function poly(ctx, pts, fill, stroke, sw) {
+        ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+        for (var i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+        ctx.closePath(); ctx.lineJoin = "round";
+        if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+        if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = sw; ctx.stroke(); }
+      }
+      function circ(ctx, x, y, r, fill, stroke, sw) {
+        ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832);
+        if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+        if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = sw; ctx.stroke(); }
+      }
+      function drawSym(ctx, id, c) {
+        var K = "#222222", W = "#FFFFFF", i, y;
+        if (id === "arrow") {
+          var ap = [[0, -46], [30, 38], [0, 20], [-30, 38]];
+          poly(ctx, ap, c, W, 5); poly(ctx, ap, c, K, 1.5);
+        } else if (id === "cross") {
+          circ(ctx, 0, 0, 36, W, c, 7);
+          ln(ctx, 0, -30, 0, 30, c, 1, 5); ln(ctx, -30, 0, 30, 0, c, 1, 5);
+          poly(ctx, [[0, -50], [-9, -38], [9, -38]], c, K, 1.5);
+        } else if (id === "dot") {
+          ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-26, -46);
+          ctx.arc(0, 0, 52.8, Math.atan2(-46, -26), Math.atan2(-46, 26), false); ctx.closePath();
+          ctx.globalAlpha = 0.35; ctx.fillStyle = c; ctx.fill(); ctx.globalAlpha = 1;
+          circ(ctx, 0, 0, 13, c, W, 5); circ(ctx, 0, 0, 13, null, K, 1.2);
+        } else if (id === "wd") {
+          box(ctx, -27, -30, 9, 20, 3, K, 1); box(ctx, 18, -30, 9, 20, 3, K, 1); box(ctx, -27, 16, 9, 20, 3, K, 1); box(ctx, 18, 16, 9, 20, 3, K, 1);
+          box(ctx, -21, -44, 42, 90, 11, c, 1, K, 2);
+          box(ctx, -15, -26, 30, 13, 3, W, 0.85); box(ctx, -15, 30, 30, 9, 3, W, 0.6);
+          box(ctx, -14, -8, 28, 34, 3, null, 0, "#80222222", 2);
+          ln(ctx, -14, 2, 14, 2, K, 0.5, 2); ln(ctx, -14, 14, 14, 14, K, 0.5, 2);
+        } else if (id === "ute") {
+          box(ctx, -27, -32, 9, 20, 3, K, 1); box(ctx, 18, -32, 9, 20, 3, K, 1); box(ctx, -27, 20, 9, 20, 3, K, 1); box(ctx, 18, 20, 9, 20, 3, K, 1);
+          box(ctx, -21, -46, 42, 50, 11, c, 1, K, 2);
+          box(ctx, -15, -30, 30, 12, 3, W, 0.85); box(ctx, -15, -12, 30, 12, 3, W, 0.55);
+          box(ctx, -21, 6, 42, 42, 3, c, 0.45, K, 2);
+          ctx.globalAlpha = 0.35; ctx.fillStyle = K; ctx.fillRect(-15, 12, 30, 30); ctx.globalAlpha = 1;
+        } else if (id === "truck") {
+          box(ctx, -27, -38, 9, 16, 3, K, 1); box(ctx, 18, -38, 9, 16, 3, K, 1); box(ctx, -27, 10, 9, 16, 3, K, 1);
+          box(ctx, 18, 10, 9, 16, 3, K, 1); box(ctx, -27, 30, 9, 16, 3, K, 1); box(ctx, 18, 30, 9, 16, 3, K, 1);
+          box(ctx, -20, -48, 40, 34, 8, c, 1, K, 2); box(ctx, -14, -40, 28, 11, 3, W, 0.85);
+          box(ctx, -21, -10, 42, 58, 3, c, 0.55, K, 2);
+          ln(ctx, -21, 8, 21, 8, K, 0.5, 2); ln(ctx, -21, 28, 21, 28, K, 0.5, 2);
+        } else if (id === "tractor") {
+          ln(ctx, -36, -38, 36, -38, K, 1, 3);
+          box(ctx, -44, -50, 10, 24, 4, K, 1); box(ctx, 34, -50, 10, 24, 4, K, 1);
+          box(ctx, -7, -46, 14, 38, 3, c, 1, K, 2); box(ctx, -13, -10, 26, 22, 3, c, 1, K, 2);
+          box(ctx, -34, 4, 12, 46, 4, K, 1); box(ctx, 22, 4, 12, 46, 4, K, 1);
+          box(ctx, -21, 8, 42, 42, 8, c, 1, K, 2);
+          box(ctx, -14, 15, 28, 28, 6, W, 0.9, K, 2);
+        } else if (id === "skid") {
+          box(ctx, -36, -32, 14, 70, 5, K, 1); box(ctx, 22, -32, 14, 70, 5, K, 1);
+          for (y = -26; y <= 34; y += 7) { ln(ctx, -36, y, -22, y, W, 0.35, 1.5); ln(ctx, 22, y, 36, y, W, 0.35, 1.5); }
+          box(ctx, -23, -16, 46, 54, 5, c, 1, K, 2);
+          box(ctx, -19, -38, 6, 34, 2, K, 0.8); box(ctx, 13, -38, 6, 34, 2, K, 0.8);
+          box(ctx, -14, -6, 28, 28, 4, W, 0.85, K, 2);
+          ln(ctx, -14, 30, 14, 30, K, 0.5, 2); ln(ctx, -14, 35, 14, 35, K, 0.5, 2);
+          box(ctx, -42, -52, 84, 16, 3, c, 1, K, 2); ln(ctx, -42, -44, 42, -44, K, 0.4, 1.5);
+        }
+      }
+      onPaint: {
+        var ctx = getContext("2d");
+        ctx.reset();
+        if (plugin.markerSym === "default") return;
+        var ci = plugin.colNames.indexOf(plugin.markerCol);
+        var col = plugin.colHex[ci < 0 ? 0 : ci];
+        if (col === "#FFFFFF" && plugin.markerSym === "cross") col = "#888888";
+        ctx.save();
+        ctx.translate(width / 2, height / 2);
+        ctx.rotate(markerLayer.angDeg * Math.PI / 180);
+        var s = plugin.markerSize / 100;
+        ctx.scale(s, s);
+        drawSym(ctx, plugin.markerSym, col);
+        ctx.restore();
+      }
+    }
+  }
+
   // ---- settings ----
   function configure() { cfgPopup.open(); }
 
@@ -1924,6 +2131,12 @@ Item {
       sPre.text = plugin.preplotName; sStnF.text = plugin.stationField; sLnF.text = plugin.lineField;
       sRecL.text = plugin.recordLayerName; sMapL.text = plugin.mappingLayerName;
       sVO.text = plugin.vOffset; sKnown.text = "";
+      sMkSym.currentIndex = Math.max(0, plugin.symIds.indexOf(plugin.markerSym));
+      sMkCol.currentIndex = Math.max(0, plugin.colNames.indexOf(plugin.markerCol));
+      var szi = 0, szd = 1e9; for (var zi = 0; zi < plugin.sizePx.length; zi++) { var dz = Math.abs(plugin.sizePx[zi] - plugin.markerSize); if (dz < szd) { szd = dz; szi = zi; } }
+      sMkSize.currentIndex = szi;
+      sBearLen.currentIndex = Math.max(0, plugin.lenM.indexOf(plugin.bearLen));
+      sLineSt.currentIndex = plugin.lineStyle === "Dashed" ? 1 : 0;
       sBase.text = plugin.baseId; sGSn.text = plugin.gpsSerial; sGMod.text = plugin.gpsModel; sGNm.text = plugin.gpsName; sCsv.checked = plugin.csvExport;
     }
     ScrollView {
@@ -1988,7 +2201,13 @@ Item {
                 + "  Right now: " + plugin.readings() + (plugin.correctionsOk() ? " - within limits." : " - OUT of limits (or not reported).")
                 + "  QField gives: " + plugin.accDiag()
                 + "  | " + plugin.posDiag()
-                + "  " + plugin.csvStatus + "  [N25 v2.9 build]" }
+                + "  " + plugin.csvStatus + "  [N25 v3.0 build]" }
+        Text { text: "Position marker (drawn on the map)"; font.bold: true; Layout.columnSpan: 2 }
+        Text { text: "Symbol"; Layout.fillWidth: true; Layout.preferredWidth: 60 } ComboBox { id: sMkSym; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120; model: plugin.symNames }
+        Text { text: "Colour"; Layout.fillWidth: true; Layout.preferredWidth: 60 } ComboBox { id: sMkCol; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120; model: plugin.colNames }
+        Text { text: "Size"; Layout.fillWidth: true; Layout.preferredWidth: 60 } ComboBox { id: sMkSize; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120; model: plugin.sizeNames }
+        Text { text: "Bearing line length"; Layout.fillWidth: true; Layout.preferredWidth: 60; wrapMode: Text.Wrap } ComboBox { id: sBearLen; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120; model: plugin.lenNames }
+        Text { text: "Bearing line style"; Layout.fillWidth: true; Layout.preferredWidth: 60; wrapMode: Text.Wrap } ComboBox { id: sLineSt; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120; model: ["Solid", "Dashed"] }
         Button { text: "Reload layers"; Layout.fillWidth: true
           onClicked: { plugin.loadedOnce = false; plugin.startLoad(); } }
         Button { text: "Apply"; Layout.fillWidth: true
@@ -2005,6 +2224,10 @@ Item {
             plugin.preplotName = sPre.text.trim(); plugin.stationField = sStnF.text.trim(); plugin.lineField = sLnF.text.trim();
             plugin.recordLayerName = sRecL.text.trim() !== "" ? sRecL.text.trim() : "N25_Points";
             plugin.mappingLayerName = sMapL.text.trim() !== "" ? sMapL.text.trim() : "N25_Mapping";
+            plugin.markerSym = plugin.symIds[sMkSym.currentIndex]; plugin.markerCol = plugin.colNames[sMkCol.currentIndex];
+            plugin.markerSize = plugin.sizePx[sMkSize.currentIndex]; plugin.bearLen = plugin.lenM[sBearLen.currentIndex];
+            plugin.lineStyle = sLineSt.currentIndex === 1 ? "Dashed" : "Solid";
+            markerLayer.update(); symCv.requestPaint(); lineCv.requestPaint();
             plugin.saveSettings();
             if (layersChanged) { plugin.loadedOnce = false; plugin.startLoad(); }
             cfgPopup.close();
