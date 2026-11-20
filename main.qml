@@ -1,4 +1,4 @@
-// Survey Plugin for QField (formerly "Nav25" / "N25")
+// Nav25 for QField
 // A QField port of the Nav12 / Nav25 field-navigation rules (Terrex Spatial) for seismic set-out:
 //   * 2D Stakeout guidance  - ATRACK / XTRACK to the next waypoint (bearings from consecutive waypoints),
 //                             AutoSelect, AutoInc +/-1, Target Lock gates, From/To threshold
@@ -82,7 +82,7 @@ Item {
   property bool autoPickLine: false      // off: the line is only chosen with the LINE button
   property real lastCx: NaN
   property real lastCy: NaN
-  // QField's own full-screen pages (settings, project picker, cloud ...). While one is open the Survey overlay hides.
+  // QField's own full-screen pages (settings, project picker, cloud ...). While one is open the N25 overlay hides.
   property var qfScreens: []
   property bool mapClear: true
   function findQfScreens() {
@@ -101,7 +101,7 @@ Item {
     if (mapClear !== clear) mapClear = clear;
   }
   Timer { interval: 250; repeat: true; running: plugin.qfScreens.length > 0; onTriggered: plugin.refreshMapClear() }
-  property real lastRot: NaN            // map rotation as this plugin last left it (to spot QField's own follow mode or a manual rotate)
+  property real lastRot: NaN            // map rotation as N25 last left it (to spot QField's own follow mode or a manual rotate)
   property bool navView: true
   property bool streaming: false
   property var nav: null
@@ -572,7 +572,7 @@ Item {
   function failLoad(e) {
     loadTimer.stop(); loading = false; loadIt = null;
     statusText = "LOAD ERROR: " + e;
-    toast("Survey: " + e);
+    toast("Nav25: " + e);
   }
 
   function addJob(jobs, seen, kind, layer, extra) {
@@ -665,10 +665,10 @@ Item {
       }
       var rl = layerByName(recordLayerName);
       if (rl) addJob(jobs, seen, "markid", rl);
-      if (!rl) toast("Survey: layer " + recordLayerName + " not found - run N25_AddLayers.py in QGIS once for this project");
-      if (missing.length > 0) toast("Survey: preplot layer(s) not found: " + missing.join(", "));
-      if (pnames.length === 0) toast("Survey: no preplot layer found - set its name in the settings tab");
-      if (jobs.length === 0) { statusText = "No Survey layers found in this project"; return; }
+      if (!rl) toast("N25: layer " + recordLayerName + " not found - run N25_AddLayers.py in QGIS once for this project");
+      if (missing.length > 0) toast("Nav25: preplot layer(s) not found: " + missing.join(", "));
+      if (pnames.length === 0) toast("Nav25: no preplot layer found - set its name in the settings tab");
+      if (jobs.length === 0) { statusText = "No Nav25 layers found in this project"; return; }
       loadJobs = jobs; loadJob = null; loadIt = null;
       loadRows = []; loadNogo = []; loadWarn = []; loadCount = 0; loadMaxId = 0;
       loading = true; statusText = "Loading layers...";
@@ -723,7 +723,7 @@ Item {
                + (preplotInfo !== "" ? "  |  preplot: " + preplotInfo : "")
                + (layerByName(recordLayerName) ? "" : "  |  RECORD LAYER '" + recordLayerName + "' NOT IN PROJECT");
     restoreLine();
-    toast("Survey ready: " + statusText + (curLine !== "" ? "  (line " + curLine + ")" : ""));
+    toast("Nav25 ready: " + statusText + (curLine !== "" ? "  (line " + curLine + ")" : ""));
     if (pendingPicker) { pendingPicker = false; linePopup.openPicker(); }
   }
 
@@ -924,7 +924,7 @@ Item {
         if (!(mupp > 0)) mupp = 0.5;
         var cc = ms.center;
         if (isFinite(lastCx) && Math.hypot(cc.x - lastCx, cc.y - lastCy) > mupp * 12) {
-          follow = false; toast("Map free - tap FOLLOW in the Survey panel to recentre");
+          follow = false; toast("Map free - tap FOLLOW in the N25 panel to recentre");
         }
         // if something else has turned the map since we last set it (QField's blue locate button in
         // "follow location and direction" mode, or a two-finger rotate), hand the map over instead of fighting it
@@ -932,7 +932,7 @@ Item {
           var dRot = Math.abs((((ms.rotation - lastRot) % 360) + 540) % 360 - 180);
           if (dRot > 3) {
             follow = false; lastRot = NaN;
-            toast("Survey follow off - QField is steering the map. Tap FOLLOW in the Survey panel to take it back");
+            toast("N25 follow off - QField is steering the map. Tap FOLLOW in the N25 panel to take it back");
           }
         }
       } catch (ep) {}
@@ -968,7 +968,7 @@ Item {
         positioning.active = false; streaming = false; avgActive = false; slRun = false; slPrev = null; haveFix = false;
         setZoneState("clear"); toast("GPS stopped");
       }
-    } catch (e) { statusText = "ERROR: " + e; toast("Survey: " + e); }
+    } catch (e) { statusText = "ERROR: " + e; toast("Nav25: " + e); }
   }
 
   // ------------------------------------------------------------------ recording (Mark Position)
@@ -1313,7 +1313,7 @@ Item {
   readonly property bool onTarget: positioning.active && haveFix && nav !== null && targetLocked(nav, aTol, xTol)
   readonly property color cZone: zoneStat === "nogo" ? cBad : (zoneStat === "warn" ? "#FF9A1F" : "#1E7B46")
 
-  // Position of the SV circle on screen, so REC and MARK can sit in a column directly under it
+  // Position of the N25 circle on screen, so REC and MARK can sit in a column directly under it
   property real launchX: -1
   property real launchY: -1
   function sideX(w) {
@@ -1339,7 +1339,7 @@ Item {
     id: launcher
     width: 48; height: 48; radius: 24
     color: panel.visible ? "#1B6EF3" : "#80000000"
-    Text { anchors.centerIn: parent; text: "SV"; color: "white"; font.bold: true; font.pixelSize: 14 }
+    Text { anchors.centerIn: parent; text: "N25"; color: "white"; font.bold: true; font.pixelSize: 14 }
     MouseArea { anchors.fill: parent
       onClicked: {
         panel.visible = !panel.visible;
@@ -1362,7 +1362,7 @@ Item {
     MouseArea { anchors.fill: parent
       onClicked: {
         try { if (plugin.slRun) plugin.slStop(""); else plugin.slStart(); }
-        catch (e) { plugin.statusText = "ERROR: " + e; plugin.toast("Survey: " + e); }
+        catch (e) { plugin.statusText = "ERROR: " + e; plugin.toast("Nav25: " + e); }
       } }
   }
   Rectangle {
@@ -1378,8 +1378,8 @@ Item {
     Text { anchors.centerIn: parent; text: "REC"; color: "white"; font.bold: true; font.pixelSize: 13 }
     MouseArea { anchors.fill: parent
       onClicked: {
-        try { markPopup.openRec(false); }   // same record form as the REC button in the Survey panel
-        catch (e) { plugin.statusText = "ERROR: " + e; plugin.toast("Survey: " + e); }
+        try { markPopup.openRec(false); }   // same record form as the REC button in the N25 panel
+        catch (e) { plugin.statusText = "ERROR: " + e; plugin.toast("Nav25: " + e); }
       } }
   }
 
@@ -1395,7 +1395,7 @@ Item {
     border.color: "white"; border.width: 2
     Text { anchors.centerIn: parent; text: plugin.streaming ? "STOP" : "MARK"; color: "white"; font.bold: true; font.pixelSize: 11 }
     MouseArea { anchors.fill: parent
-      onClicked: { try { if (plugin.streaming) { plugin.streaming = false; plugin.toast("Stream stopped"); } else featPopup.openIt(); } catch (e) { plugin.statusText = "ERROR: " + e; plugin.toast("Survey: " + e); } } }
+      onClicked: { try { if (plugin.streaming) { plugin.streaming = false; plugin.toast("Stream stopped"); } else featPopup.openIt(); } catch (e) { plugin.statusText = "ERROR: " + e; plugin.toast("Nav25: " + e); } } }
   }
 
   // ---- stored-point banner: line + station of the point just recorded (e.g. 1A1002), fades after a few seconds ----
@@ -1463,7 +1463,7 @@ Item {
         font.pixelSize: Math.max(8, Math.round(24 * miniInfo.k)); font.bold: true
       }
       Text { text: plugin.dir > 0 ? "+ INCREASING" : "- DECREASING"; color: "#8FC7FF"; font.pixelSize: Math.max(8, Math.round(11 * miniInfo.k)); font.bold: true }
-      Text { text: "Survey v3.3"; color: plugin.cDim; font.pixelSize: Math.max(8, Math.round(9 * miniInfo.k)) }
+      Text { text: "N25 v3.3"; color: plugin.cDim; font.pixelSize: Math.max(8, Math.round(9 * miniInfo.k)) }
     }
   }
 
@@ -1781,7 +1781,7 @@ Item {
                     case "view": plugin.navView = !plugin.navView; plugin.saveSettings(); break;
                     case "cfg": cfgPopup.open(); break;
                     }
-                  } catch (e) { plugin.statusText = "ERROR: " + e; plugin.toast("Survey: " + e); }
+                  } catch (e) { plugin.statusText = "ERROR: " + e; plugin.toast("Nav25: " + e); }
                 }
               }
             }
@@ -1961,7 +1961,7 @@ Item {
           p = plugin.mapCanvas.mapToItem(markerLayer, p.x, p.y);
           if (q) q = plugin.mapCanvas.mapToItem(markerLayer, q.x, q.y);
         } catch (ec) {
-          // no coordinate transform on this QField build: the plugin follow keeps the position at the centre of the map
+          // no coordinate transform on this QField build: the N25 follow keeps the position at the centre of the map
           p = { x: width / 2, y: height / 2 };
           q = null;
           if (plugin.bearLen > 0) { var a = b * 180 / Math.PI + rot; q = { x: p.x + 4000 * Math.sin(a * Math.PI / 180), y: p.y - 4000 * Math.cos(a * Math.PI / 180) }; }
@@ -2166,7 +2166,7 @@ Item {
       GridLayout {
         width: cfgScroll.availableWidth
         columns: 2
-        Text { text: "Survey settings"; font.bold: true; font.pixelSize: 16; Layout.columnSpan: 2 }
+        Text { text: "Nav25 settings"; font.bold: true; font.pixelSize: 16; Layout.columnSpan: 2 }
         Text { Layout.columnSpan: 2; Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: 11
           color: plugin.store ? "#1E7B46" : "#B3261E"
           text: plugin.store ? "Settings are remembered between sessions." : "Settings can NOT be remembered on this QField: " + plugin.storeErr }
@@ -2220,7 +2220,7 @@ Item {
                 + "  Right now: " + plugin.readings() + (plugin.correctionsOk() ? " - within limits." : " - OUT of limits (or not reported).")
                 + "  QField gives: " + plugin.accDiag()
                 + "  | " + plugin.posDiag()
-                + "  " + plugin.csvStatus + "  [Survey v3.3 build]" }
+                + "  " + plugin.csvStatus + "  [N25 v3.3 build]" }
         Text { text: "Position marker (drawn on the map)"; font.bold: true; Layout.columnSpan: 2 }
         Text { text: "Symbol"; Layout.fillWidth: true; Layout.preferredWidth: 60 } ComboBox { id: sMkSym; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120; model: plugin.symNames }
         Text { text: "Colour"; Layout.fillWidth: true; Layout.preferredWidth: 60 } ComboBox { id: sMkCol; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120; model: plugin.colNames }
