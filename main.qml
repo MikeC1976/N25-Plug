@@ -177,7 +177,7 @@ Item {
     } catch (e) { store = null; storeErr = String(e); }
   }
   readonly property var persistNums: ["aTol", "xTol", "fromToThreshold", "stnInterval", "maxIntvl", "maxBend", "distTol", "antHt", "autoInc", "logInterval", "pTol", "zTol", "qTol", "vOffset", "markerSize", "bearLen"]
-  readonly property var persistStrs: ["surveyor", "preplotName", "stationField", "lineField", "recordLayerName", "mappingLayerName", "baseId", "gpsSerial", "gpsModel", "gpsName", "markerSym", "markerCol", "lineStyle"]
+  readonly property var persistStrs: ["surveyor", "preplotName", "stationField", "lineField", "recordLayerName", "mappingLayerName", "baseId", "gpsSerial", "gpsModel", "gpsName", "markerSym", "markerCol", "lineStyle", "lineCol"]
   readonly property var persistBools: ["stakelessEnabled", "alarmSound", "voiceFeedback", "navView", "csvExport", "autoPickLine"]
   function saveSettings() {
     if (!store) return;
@@ -1919,6 +1919,8 @@ Item {
   property real markerSize: 60
   property real bearLen: 0
   property string lineStyle: "Solid"
+  property string lineCol: "Same as symbol"
+  readonly property var lineColNames: ["Same as symbol", "Red", "Orange", "Yellow", "Green", "Blue", "Magenta", "Black", "White"]
 
   Item {
     id: markerLayer
@@ -1935,6 +1937,13 @@ Item {
     readonly property color mainCol: {
       var i = plugin.colNames.indexOf(plugin.markerCol);
       var c = plugin.colHex[i < 0 ? 0 : i];
+      return (c === "#FFFFFF") ? "#888888" : c;
+    }
+
+    readonly property color lineColor: {
+      var i = plugin.colNames.indexOf(plugin.lineCol);
+      if (i < 0) return mainCol;
+      var c = plugin.colHex[i];
       return (c === "#FFFFFF") ? "#888888" : c;
     }
 
@@ -1986,10 +1995,19 @@ Item {
         ctx.lineCap = "round";
         ctx.strokeStyle = "#FFFFFF"; ctx.lineWidth = 7;
         ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
-        ctx.strokeStyle = markerLayer.mainCol; ctx.lineWidth = 3.5;
+        ctx.strokeStyle = markerLayer.lineColor; ctx.lineWidth = 3.5;
         try { if (plugin.lineStyle === "Dashed") ctx.setLineDash([14, 9]); } catch (ed) {}
         ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
         try { ctx.setLineDash([]); } catch (ed2) {}
+        // arrow head at the end of the line (only when the end of the line is on the screen)
+        if (k === 1 && x1 > 0 && y1 > 0 && x1 < width && y1 < height) {
+          var ux = dx / full, uy = dy / full, hl = 20, hw = 10;
+          var bx = x1 - ux * hl, by = y1 - uy * hl;
+          ctx.beginPath(); ctx.moveTo(x1 + ux * 3, y1 + uy * 3); ctx.lineTo(bx - uy * hw, by + ux * hw); ctx.lineTo(bx + uy * hw, by - ux * hw); ctx.closePath();
+          ctx.lineJoin = "round"; ctx.strokeStyle = "#FFFFFF"; ctx.lineWidth = 3; ctx.stroke();
+          ctx.fillStyle = markerLayer.lineColor; ctx.fill();
+          ctx.strokeStyle = "#222222"; ctx.lineWidth = 1; ctx.stroke();
+        }
         var ticks = [500, 1000, 2000, 5000, 10000, 20000];
         ctx.font = "bold 12px sans-serif";
         for (var i = 0; i < ticks.length; i++) {
@@ -2137,6 +2155,7 @@ Item {
       sMkSize.currentIndex = szi;
       sBearLen.currentIndex = Math.max(0, plugin.lenM.indexOf(plugin.bearLen));
       sLineSt.currentIndex = plugin.lineStyle === "Dashed" ? 1 : 0;
+      sLineCol.currentIndex = Math.max(0, plugin.lineColNames.indexOf(plugin.lineCol));
       sBase.text = plugin.baseId; sGSn.text = plugin.gpsSerial; sGMod.text = plugin.gpsModel; sGNm.text = plugin.gpsName; sCsv.checked = plugin.csvExport;
     }
     ScrollView {
@@ -2201,12 +2220,13 @@ Item {
                 + "  Right now: " + plugin.readings() + (plugin.correctionsOk() ? " - within limits." : " - OUT of limits (or not reported).")
                 + "  QField gives: " + plugin.accDiag()
                 + "  | " + plugin.posDiag()
-                + "  " + plugin.csvStatus + "  [N25 v3.0 build]" }
+                + "  " + plugin.csvStatus + "  [N25 v3.1 build]" }
         Text { text: "Position marker (drawn on the map)"; font.bold: true; Layout.columnSpan: 2 }
         Text { text: "Symbol"; Layout.fillWidth: true; Layout.preferredWidth: 60 } ComboBox { id: sMkSym; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120; model: plugin.symNames }
         Text { text: "Colour"; Layout.fillWidth: true; Layout.preferredWidth: 60 } ComboBox { id: sMkCol; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120; model: plugin.colNames }
         Text { text: "Size"; Layout.fillWidth: true; Layout.preferredWidth: 60 } ComboBox { id: sMkSize; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120; model: plugin.sizeNames }
         Text { text: "Bearing line length"; Layout.fillWidth: true; Layout.preferredWidth: 60; wrapMode: Text.Wrap } ComboBox { id: sBearLen; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120; model: plugin.lenNames }
+        Text { text: "Bearing line colour"; Layout.fillWidth: true; Layout.preferredWidth: 60; wrapMode: Text.Wrap } ComboBox { id: sLineCol; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120; model: plugin.lineColNames }
         Text { text: "Bearing line style"; Layout.fillWidth: true; Layout.preferredWidth: 60; wrapMode: Text.Wrap } ComboBox { id: sLineSt; Layout.fillWidth: true; Layout.preferredWidth: 40; Layout.minimumWidth: 120; model: ["Solid", "Dashed"] }
         Button { text: "Reload layers"; Layout.fillWidth: true
           onClicked: { plugin.loadedOnce = false; plugin.startLoad(); } }
@@ -2226,7 +2246,7 @@ Item {
             plugin.mappingLayerName = sMapL.text.trim() !== "" ? sMapL.text.trim() : "N25_Mapping";
             plugin.markerSym = plugin.symIds[sMkSym.currentIndex]; plugin.markerCol = plugin.colNames[sMkCol.currentIndex];
             plugin.markerSize = plugin.sizePx[sMkSize.currentIndex]; plugin.bearLen = plugin.lenM[sBearLen.currentIndex];
-            plugin.lineStyle = sLineSt.currentIndex === 1 ? "Dashed" : "Solid";
+            plugin.lineStyle = sLineSt.currentIndex === 1 ? "Dashed" : "Solid"; plugin.lineCol = plugin.lineColNames[sLineCol.currentIndex];
             markerLayer.update(); symCv.requestPaint(); lineCv.requestPaint();
             plugin.saveSettings();
             if (layersChanged) { plugin.loadedOnce = false; plugin.startLoad(); }
