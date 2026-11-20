@@ -1433,7 +1433,7 @@ Item {
     width: Math.round(172 * k)
     height: infoCol.implicitHeight + 12
     radius: compact ? 6 : 8
-    color: plugin.onTarget ? (compact ? "#B8138A45" : "#E0138A45") : (compact ? "#A0101820" : "#C8101820")
+    color: plugin.onTarget ? (compact ? "#70138A45" : "#80138A45") : (compact ? "#60101820" : "#70101820")
     MouseArea { anchors.fill: parent; onClicked: linePopup.openPicker() }
     Column {
       id: infoCol
